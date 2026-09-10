@@ -17,6 +17,7 @@ st.set_page_config(
 
 SHEET_ID = "1k1rEDG8UqMG7Oo6bBrbWK3lrdmUPKPFmrlPjCjRfVno"
 DATA_GID = "488571671"
+
 DEFAULT_CSV_URL = (
     f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export"
     f"?format=csv&gid={DATA_GID}"
@@ -383,9 +384,16 @@ if filtered.empty:
     st.stop()
 
 
-tab_overview, tab_quality, tab_detail, tab_method = st.tabs(
+(
+    tab_overview,
+    tab_forecast,
+    tab_quality,
+    tab_detail,
+    tab_method,
+) = st.tabs(
     [
         "Ringkasan",
+        "Looking Forward",
         "Kualitas Data",
         "Detail Event",
         "Metodologi",
@@ -541,12 +549,284 @@ with tab_overview:
     )
 
 
+with tab_forecast:
+    st.subheader(
+        "Looking Forward – Estimated Annual Loss"
+    )
+
+    st.caption(
+        "Estimasi tahunan = aktual YTD + estimasi sisa periode. "
+        "Baseline menggunakan rata-rata loss bulanan aktual "
+        "sampai cut-off data."
+    )
+
+    if len(selected_years) != 1:
+        st.info(
+            "Pilih tepat satu tahun pada filter untuk "
+            "menampilkan proyeksi tahunan."
+        )
+
+    else:
+        forecast_year = int(selected_years[0])
+
+        forecast_data = filtered[
+            filtered["Tahun"] == forecast_year
+        ].copy()
+
+        available_months = (
+            df.loc[
+                df["Tahun"] == forecast_year,
+                "Bulan_No",
+            ]
+            .dropna()
+        )
+
+        if available_months.empty:
+            st.warning(
+                "Periode aktual untuk tahun yang dipilih "
+                "belum tersedia."
+            )
+            st.stop()
+
+        cutoff_month = int(available_months.max())
+        remaining_months = max(12 - cutoff_month, 0)
+
+        scenario = st.radio(
+            "Skenario sisa tahun",
+            [
+                "Optimistis",
+                "Base",
+                "Pesimistis",
+            ],
+            index=1,
+            horizontal=True,
+        )
+
+        scenario_factor = {
+            "Optimistis": 0.80,
+            "Base": 1.00,
+            "Pesimistis": 1.20,
+        }[scenario]
+
+        actual_mwh = (
+            forecast_data[
+                "Loss_Production_MWh"
+            ].sum()
+        )
+
+        actual_rp = (
+            forecast_data[
+                "Loss_Opportunity_Rp"
+            ].sum()
+        )
+
+        if cutoff_month > 0:
+            monthly_mwh = actual_mwh / cutoff_month
+            monthly_rp = actual_rp / cutoff_month
+        else:
+            monthly_mwh = 0
+            monthly_rp = 0
+
+        remaining_mwh = (
+            monthly_mwh
+            * remaining_months
+            * scenario_factor
+        )
+
+        remaining_rp = (
+            monthly_rp
+            * remaining_months
+            * scenario_factor
+        )
+
+        annual_mwh = actual_mwh + remaining_mwh
+        annual_rp = actual_rp + remaining_rp
+
+        if pd.notna(risk_limit) and risk_limit > 0:
+            annual_pct = annual_rp / risk_limit
+        else:
+            annual_pct = np.nan
+
+
+        f1, f2, f3, f4, f5 = st.columns(5)
+
+        f1.metric(
+            "Cut-off Realisasi",
+            f"Bulan ke-{cutoff_month}",
+        )
+
+        f2.metric(
+            "Aktual YTD",
+            rupiah(actual_rp),
+        )
+
+        f3.metric(
+            "Estimasi Sisa Tahun",
+            rupiah(remaining_rp),
+        )
+
+        f4.metric(
+            "Estimasi Tahunan",
+            rupiah(annual_rp),
+        )
+
+        f5.metric(
+            "Skala Dampak Estimasi",
+            (
+                impact_scale(annual_pct)
+                if not pd.isna(annual_pct)
+                else "-"
+            ),
+        )
+
+
+        st.metric(
+            "Estimated Annual Loss Production",
+            f"{number(annual_mwh, 3)} MWh",
+        )
+
+        progress_value = (
+            min(float(annual_pct), 1.0)
+            if not pd.isna(annual_pct)
+            else 0.0
+        )
+
+        st.progress(progress_value)
+
+        st.caption(
+            "Estimated annual loss opportunity terhadap "
+            "risk limit: "
+            + (
+                f"{annual_pct:.2%}"
+                if not pd.isna(annual_pct)
+                else "-"
+            )
+        )
+
+
+        actual_monthly = (
+            forecast_data
+            .dropna(subset=["Periode"])
+            .groupby(
+                "Periode",
+                as_index=False,
+            )
+            .agg(
+                Loss_Rp=(
+                    "Loss_Opportunity_Rp",
+                    "sum",
+                )
+            )
+            .sort_values("Periode")
+        )
+
+        actual_monthly["Jenis"] = "Aktual"
+
+        if remaining_months > 0:
+            future_dates = pd.date_range(
+                start=(
+                    pd.Timestamp(
+                        forecast_year,
+                        cutoff_month,
+                        1,
+                    )
+                    + pd.offsets.MonthBegin(1)
+                ),
+                periods=remaining_months,
+                freq="MS",
+            )
+
+            projected = pd.DataFrame(
+                {
+                    "Periode": future_dates,
+                    "Loss_Rp": (
+                        monthly_rp
+                        * scenario_factor
+                    ),
+                    "Jenis": "Estimasi",
+                }
+            )
+
+            outlook = pd.concat(
+                [
+                    actual_monthly,
+                    projected,
+                ],
+                ignore_index=True,
+            )
+
+        else:
+            outlook = actual_monthly
+
+
+        fig = px.bar(
+            outlook,
+            x="Periode",
+            y="Loss_Rp",
+            color="Jenis",
+            barmode="group",
+            title=(
+                "Aktual dan Estimasi "
+                f"Loss Opportunity {forecast_year}"
+            ),
+            labels={
+                "Loss_Rp": "Loss Opportunity Rp",
+                "Periode": "Periode",
+            },
+            color_discrete_map={
+                "Aktual": "#0072CE",
+                "Estimasi": "#F4A261",
+            },
+        )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True,
+        )
+
+
+        summary = pd.DataFrame(
+            {
+                "Komponen": [
+                    "Aktual YTD",
+                    "Estimasi Sisa Tahun",
+                    "Estimasi Tahunan",
+                ],
+                "Loss Production MWh": [
+                    actual_mwh,
+                    remaining_mwh,
+                    annual_mwh,
+                ],
+                "Loss Opportunity Rp": [
+                    actual_rp,
+                    remaining_rp,
+                    annual_rp,
+                ],
+            }
+        )
+
+        st.dataframe(
+            summary,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        st.warning(
+            "Proyeksi ini adalah annualized run-rate, "
+            "bukan hasil Monte Carlo. Perubahan skenario "
+            "hanya diterapkan pada periode yang belum "
+            "terealisasi."
+        )
+
+
 with tab_quality:
     q1, q2, q3 = st.columns(3)
 
     if "Kelengkapan_Waktu" in filtered.columns:
         detailed = int(
-            filtered["Kelengkapan_Waktu"]
+            filtered[
+                "Kelengkapan_Waktu"
+            ]
             .isin(
                 [
                     "ADA TANGGAL",
@@ -558,10 +838,13 @@ with tab_quality:
 
         monthly_only = int(
             (
-                filtered["Kelengkapan_Waktu"]
+                filtered[
+                    "Kelengkapan_Waktu"
+                ]
                 == "HANYA BULAN"
             ).sum()
         )
+
     else:
         detailed = 0
         monthly_only = 0
@@ -569,12 +852,15 @@ with tab_quality:
     if "Event_Layak_Model" in filtered.columns:
         review = int(
             (
-                filtered["Event_Layak_Model"]
+                filtered[
+                    "Event_Layak_Model"
+                ]
                 != "LAYAK"
             ).sum()
         )
     else:
         review = 0
+
 
     q1.metric(
         "Ada Tanggal",
@@ -590,6 +876,7 @@ with tab_quality:
         "Perlu Review Model",
         f"{review:,}",
     )
+
 
     if "Kelengkapan_Waktu" in filtered.columns:
         quality = (
@@ -615,9 +902,9 @@ with tab_quality:
         )
 
     st.warning(
-        "Record berstatus HANYA BULAN ditampilkan sebagai "
-        "agregasi bulanan. Dashboard tidak mengasumsikan "
-        "tanggal kejadian tertentu."
+        "Record berstatus HANYA BULAN ditampilkan "
+        "sebagai agregasi bulanan. Dashboard tidak "
+        "mengasumsikan tanggal kejadian tertentu."
     )
 
 
@@ -687,9 +974,9 @@ with tab_method:
            hasil klasifikasi formula.
         3. Loss production dijumlahkan dalam MWh.
         4. Loss opportunity dijumlahkan dalam Rp.
-        5. Persentase risk limit agregat dihitung dari
-           total loss opportunity terfilter dibagi
-           risk limit korporat.
+        5. Persentase risk limit agregat dihitung
+           dari total loss opportunity terfilter
+           dibagi risk limit korporat.
         6. Batas skala dampak:
            sampai 20% Sangat Rendah;
            sampai 40% Rendah;
@@ -697,10 +984,24 @@ with tab_method:
            sampai 80% Tinggi;
            di atas 80% Sangat Tinggi.
 
+        **Looking Forward**
+
+        Estimasi sisa tahun menggunakan rata-rata
+        bulanan aktual sampai cut-off, kemudian
+        dikalikan jumlah bulan tersisa dan faktor
+        skenario:
+
+        - Optimistis: 80%
+        - Base: 100%
+        - Pesimistis: 120%
+
+        Estimasi tahunan merupakan aktual YTD
+        ditambah estimasi sisa tahun.
+
         **Batas interpretasi**
 
         Dashboard ini merupakan analisis historis
-        dampak loss event.
+        dan estimasi run-rate berdasarkan loss event.
 
         Record tanpa tanggal harian tidak dipaksakan
         menjadi event harian, tetapi diperlakukan
