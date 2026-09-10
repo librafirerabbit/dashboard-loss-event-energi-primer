@@ -15,8 +15,8 @@ st.set_page_config(
     layout="wide",
 )
 
-SHEET_ID = "1XgArP1hSelfwEE5slWuRapmwuIr5T1QT757zgy6l-_w"
-DATA_GID = "1521184887"
+SHEET_ID = "1k1rEDG8UqMG7Oo6bBrbWK3lrdmUPKPFmrlPjCjRfVno"
+DATA_GID = "488571671"
 DEFAULT_CSV_URL = (
     f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export"
     f"?format=csv&gid={DATA_GID}"
