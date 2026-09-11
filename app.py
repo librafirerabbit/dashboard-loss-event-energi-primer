@@ -112,10 +112,9 @@ st.markdown(
         caret-color: #F4F7FB !important;
     }}
     [data-testid="stSidebar"] [data-testid="stMultiSelect"] button,
-    [data-testid="stSidebar"] [data-testid="stMultiSelect"] button svg,
-    [data-testid="stSidebar"] [data-testid="stMultiSelect"] button path {{
+    [data-testid="stSidebar"] [data-testid="stMultiSelect"] button svg {{
         color: #E8EDF5 !important;
-        fill: #E8EDF5 !important;
+        opacity: 1 !important;
     }}
     [data-testid="stSidebar"] [data-testid="stMultiSelect"] span[role="group"] > span {{
         background-color: #0878CE !important;
