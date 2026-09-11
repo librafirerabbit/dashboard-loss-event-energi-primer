@@ -82,12 +82,20 @@ st.markdown(
     [data-testid="stSidebar"] span {{
         color: #F4F7FB !important;
     }}
-    [data-testid="stSidebar"] [data-baseweb="select"] > div,
-    [data-testid="stSidebar"] [data-baseweb="select"] > div > div,
-    [data-testid="stSidebar"] [role="combobox"] {{
+    [data-testid="stSidebar"] div[data-baseweb="select"],
+    [data-testid="stSidebar"] div[data-baseweb="select"] > div,
+    [data-testid="stSidebar"] div[data-baseweb="select"] > div > div,
+    [data-testid="stSidebar"] div[data-baseweb="select"] [role="combobox"],
+    [data-testid="stSidebar"] div[data-baseweb="select"] [role="combobox"] > div {{
         background-color: #353B46 !important;
+        background-image: none !important;
         color: #F4F7FB !important;
         border-color: #687180 !important;
+    }}
+    [data-testid="stSidebar"] div[data-baseweb="select"] {{
+        border-radius: 10px !important;
+        box-shadow: inset 0 0 0 1px #687180 !important;
+        overflow: hidden !important;
     }}
     [data-testid="stSidebar"] [data-baseweb="select"] input {{
         color: #F4F7FB !important;
@@ -97,7 +105,9 @@ st.markdown(
         fill: #E8EDF5 !important;
         color: #E8EDF5 !important;
     }}
-    [data-testid="stSidebar"] [data-baseweb="tag"] {{
+    [data-testid="stSidebar"] [data-baseweb="tag"],
+    [data-testid="stSidebar"] [data-baseweb="tag"] > span,
+    [data-testid="stSidebar"] [data-baseweb="tag"] > div {{
         background-color: #1769AA !important;
         border: 1px solid #4FA3DD !important;
         color: #FFFFFF !important;
@@ -107,6 +117,20 @@ st.markdown(
     }}
     [data-testid="stSidebar"] hr {{
         border-color: #515966 !important;
+    }}
+    [data-baseweb="popover"],
+    [data-baseweb="popover"] [role="listbox"],
+    [data-baseweb="menu"] {{
+        background-color: #303641 !important;
+        color: #F4F7FB !important;
+    }}
+    [data-baseweb="popover"] li,
+    [data-baseweb="popover"] li span {{
+        background-color: #303641 !important;
+        color: #F4F7FB !important;
+    }}
+    [data-baseweb="popover"] li:hover {{
+        background-color: #1976C9 !important;
     }}
 
     div[data-baseweb="select"] > div,
