@@ -1,3 +1,5 @@
+"""Versi final dashboard dengan matriks risiko ED 0012.E-2024."""
+
 from __future__ import annotations
 
 import io
@@ -229,6 +231,33 @@ def likelihood_score_from_probability(probability: float) -> int:
     if probability <= 0.80:
         return 4
     return 5
+
+
+# Matriks nilai risiko sesuai susunan ED 0012.E-2024.
+# Key: (Skala Dampak, Skala Kemungkinan)
+EDIR_RISK_SCORE = {
+    (1, 1): 1,  (2, 1): 5,  (3, 1): 10, (4, 1): 15, (5, 1): 20,
+    (1, 2): 2,  (2, 2): 6,  (3, 2): 11, (4, 2): 16, (5, 2): 21,
+    (1, 3): 3,  (2, 3): 8,  (3, 3): 13, (4, 3): 18, (5, 3): 23,
+    (1, 4): 4,  (2, 4): 9,  (3, 4): 14, (4, 4): 19, (5, 4): 24,
+    (1, 5): 7,  (2, 5): 12, (3, 5): 17, (4, 5): 22, (5, 5): 25,
+}
+
+
+def edir_risk_score(impact_score: int, likelihood_score: int) -> int:
+    return EDIR_RISK_SCORE[(int(impact_score), int(likelihood_score))]
+
+
+def edir_risk_level(score: int) -> str:
+    if score <= 5:
+        return "Low"
+    if score <= 11:
+        return "Low to Moderate"
+    if score <= 15:
+        return "Moderate"
+    if score <= 19:
+        return "Moderate to High"
+    return "High"
 
 
 def simulate_annual_loss(
@@ -765,48 +794,113 @@ with tab_heatmap:
                     "Probability of Exceedance": exceedance_probability,
                     "Skala Kemungkinan": likelihood_score,
                     "Skala Dampak": impact_score,
-                    "Nilai Risiko": likelihood_score * impact_score,
+                    "Nilai Risiko": edir_risk_score(impact_score, likelihood_score),
+                    "Level Risiko": edir_risk_level(
+                        edir_risk_score(impact_score, likelihood_score)
+                    ),
                 }
             )
 
         heat_df = pd.DataFrame(heat_rows)
-        grid = pd.DataFrame(
-            [(x, y, x * y) for x in range(1, 6) for y in range(1, 6)],
-            columns=["Skala Dampak", "Skala Kemungkinan", "Nilai Risiko"],
+        # Matriks warna diskrit lebih mudah dibaca daripada bubble bergradasi.
+        score_matrix = np.array(
+            [[edir_risk_score(x, y) for x in range(1, 6)] for y in range(1, 6)]
         )
-        fig = px.scatter(
-            grid,
-            x="Skala Dampak",
-            y="Skala Kemungkinan",
-            color="Nilai Risiko",
-            size=np.full(len(grid), 45),
-            color_continuous_scale=["#2E7D32", "#F9A825", "#EF6C00", "#C62828"],
-            range_x=[0.5, 5.5],
-            range_y=[0.5, 5.5],
+        risk_band = np.select(
+            [score_matrix <= 5, score_matrix <= 11, score_matrix <= 15, score_matrix <= 19],
+            [1, 2, 3, 4],
+            default=5,
+        )
+        band_colors = ["#55B24F", "#8DEB18", "#FFE54F", "#FF7E1B", "#F43D35"]
+        heat_colorscale = [
+            [0.0000, band_colors[0]], [0.1249, band_colors[0]],
+            [0.1250, band_colors[1]], [0.3749, band_colors[1]],
+            [0.3750, band_colors[2]], [0.6249, band_colors[2]],
+            [0.6250, band_colors[3]], [0.8749, band_colors[3]],
+            [0.8750, band_colors[4]], [1.0000, band_colors[4]],
+        ]
+
+        fig = go.Figure(
+            go.Heatmap(
+                z=risk_band,
+                x=[1, 2, 3, 4, 5], y=[1, 2, 3, 4, 5],
+                zmin=1, zmax=5, colorscale=heat_colorscale,
+                showscale=False, xgap=2, ygap=2,
+                text=score_matrix,
+                texttemplate="<b>%{text}</b>",
+                textfont={"size": 15, "color": "#101522"},
+                hovertemplate="Dampak %{x}<br>Kemungkinan %{y}<br>Skor %{text}<extra></extra>",
+            )
+        )
+
+        # Marker bernomor + jitter deterministik mencegah kategori saling menumpuk.
+        point_colors = ["#4DB7F5", "#D83CF0", "#FFB000", "#FFFFFF", "#8B5CF6"]
+        offsets = [(-0.20, 0.18), (0.20, 0.18), (-0.20, -0.18), (0.20, -0.18), (0, 0)]
+        plotted_x, plotted_y = [], []
+        cell_counter = {}
+        for _, row in heat_df.reset_index(drop=True).iterrows():
+            cell = (int(row["Skala Dampak"]), int(row["Skala Kemungkinan"]))
+            order = cell_counter.get(cell, 0)
+            cell_counter[cell] = order + 1
+            dx, dy = offsets[order % len(offsets)]
+            plotted_x.append(cell[0] + dx)
+            plotted_y.append(cell[1] + dy)
+
+        heat_df["No"] = np.arange(1, len(heat_df) + 1)
+        heat_df["Posisi_X"] = plotted_x
+        heat_df["Posisi_Y"] = plotted_y
+        fig.add_trace(
+            go.Scatter(
+                x=heat_df["Posisi_X"], y=heat_df["Posisi_Y"],
+                mode="markers+text", text=heat_df["No"].astype(str),
+                textposition="middle center",
+                textfont={"size": 12, "color": "#07111E", "family": "Arial Black"},
+                marker={
+                    "size": 31,
+                    "color": [point_colors[i % len(point_colors)] for i in range(len(heat_df))],
+                    "line": {"color": "#07111E", "width": 2},
+                },
+                customdata=heat_df[["Kategori", "P90 Annual Loss Rp", "% Risk Limit", "Probability of Exceedance"]],
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>P90 Rp %{customdata[1]:,.0f}"
+                    "<br>% Risk Limit %{customdata[2]:.2%}"
+                    "<br>Probability of Exceedance %{customdata[3]:.2%}<extra></extra>"
+                ),
+                name="Kategori Risiko",
+            )
+        )
+        fig.update_layout(
             title="Heat Map Risiko Hambatan Energi Primer",
+            xaxis_title="TINGKAT DAMPAK", yaxis_title="TINGKAT KEMUNGKINAN",
+            showlegend=False,
         )
-        fig.add_scatter(
-            x=heat_df["Skala Dampak"],
-            y=heat_df["Skala Kemungkinan"],
-            mode="markers+text",
-            text=heat_df["Kategori"],
-            textposition="top center",
-            marker={"size": 18, "color": "#111827", "symbol": "diamond"},
-            name="Kategori Risiko",
+        fig.update_xaxes(
+            tickmode="array", tickvals=[1, 2, 3, 4, 5],
+            ticktext=["1<br>Sangat Rendah", "2<br>Rendah", "3<br>Moderat", "4<br>Tinggi", "5<br>Sangat Tinggi"],
+            range=[0.5, 5.5], fixedrange=True, gridcolor="#0B0F17",
         )
-        fig.update_xaxes(dtick=1)
-        fig.update_yaxes(dtick=1)
-        st.plotly_chart(fig, use_container_width=True)
+        fig.update_yaxes(
+            tickmode="array", tickvals=[1, 2, 3, 4, 5],
+            ticktext=["1 · Sangat Jarang", "2 · Jarang", "3 · Bisa Terjadi", "4 · Sangat Mungkin", "5 · Hampir Pasti"],
+            range=[0.5, 5.5], fixedrange=True, gridcolor="#0B0F17",
+        )
+        st.plotly_chart(style_figure(fig, 650), use_container_width=True)
+
+        legend_df = heat_df[[
+            "No", "Kategori", "Skala Kemungkinan", "Skala Dampak", "Nilai Risiko",
+            "Level Risiko",
+            "P90 Annual Loss Rp", "% Risk Limit", "Probability of Exceedance",
+        ]].copy()
+        st.markdown("#### Legenda Kategori Risiko")
         st.dataframe(
-            heat_df.style.format(
+            legend_df.style.format(
                 {
                     "P90 Annual Loss Rp": "{:,.0f}",
                     "% Risk Limit": "{:.2%}",
                     "Probability of Exceedance": "{:.2%}",
                 }
             ),
-            use_container_width=True,
-            hide_index=True,
+            use_container_width=True, hide_index=True,
         )
         st.warning(
             "Batas Skala Kemungkinan masih provisional: ≤5%, ≤20%, ≤50%, "
