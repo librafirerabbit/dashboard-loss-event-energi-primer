@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import io
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -113,14 +110,6 @@ MONTH_ORDER = {
 @st.cache_data(ttl=600, show_spinner=False)
 def load_csv(url: str) -> pd.DataFrame:
     return pd.read_csv(url)
-
-
-@st.cache_data(show_spinner=False)
-def load_upload(file_name: str, raw: bytes) -> pd.DataFrame:
-    suffix = Path(file_name).suffix.lower()
-    if suffix == ".csv":
-        return pd.read_csv(io.BytesIO(raw))
-    return pd.read_excel(io.BytesIO(raw), sheet_name="Data_Loss_Event")
 
 
 def prepare_data(raw: pd.DataFrame) -> pd.DataFrame:
@@ -321,35 +310,22 @@ st.caption(
     "Pendekatan langsung berbasis loss production (MWh) dan loss opportunity (Rp)."
 )
 
-with st.sidebar:
-    st.header("Sumber Data")
-    uploaded = st.file_uploader(
-        "Opsional: unggah CSV/XLSX",
-        type=["csv", "xlsx"],
-        help="Dipakai bila Google Sheet belum dapat diakses oleh aplikasi publik.",
-    )
-    csv_url = st.text_input("Google Sheet CSV URL", value=DEFAULT_CSV_URL)
-    st.divider()
-
 try:
-    if uploaded is not None:
-        raw_df = load_upload(uploaded.name, uploaded.getvalue())
-        source_label = f"Unggahan: {uploaded.name}"
-    else:
-        raw_df = load_csv(csv_url)
-        source_label = "Google Sheet"
+    raw_df = load_csv(DEFAULT_CSV_URL)
+    source_label = "Google Sheet Publik"
     df = prepare_data(raw_df)
 except Exception as exc:
     st.error("Data belum dapat dibaca oleh dashboard.")
     st.info(
-        "Pastikan Google Sheet dapat diakses oleh aplikasi melalui Publish to web, "
-        "atau unggah file XLSX/CSV pada panel kiri."
+        "Pastikan Google Sheet sumber data tetap dibagikan atau dipublikasikan."
     )
     st.code(str(exc))
     st.stop()
 
 with st.sidebar:
-    st.header("Filter")
+    st.header("Filter Dashboard")
+    st.caption("Sumber data: Google Sheet publik")
+    st.divider()
     years = sorted(df["Tahun"].dropna().astype(int).unique())
     selected_years = st.multiselect("Tahun", years, default=years)
     selected_regions = multiselect_filter("Regional", df["Regional"], "regional")
@@ -435,14 +411,14 @@ with tab_overview:
             title="Tren Loss Production Bulanan",
             labels={"Periode": "Periode", "Loss_MWh": "Loss MWh"},
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(style_figure(fig), use_container_width=True)
     with right:
         fig = px.line(
             monthly, x="Periode", y="Loss_Rp", markers=True,
             title="Tren Loss Opportunity Bulanan",
             labels={"Periode": "Periode", "Loss_Rp": "Loss Rp"},
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(style_figure(fig), use_container_width=True)
 
     category = (
         filtered.groupby("Kategori_Final", as_index=False)
@@ -466,14 +442,14 @@ with tab_overview:
             labels={"Loss_Rp": "Loss Rp", "Kategori_Final": "Kategori"},
         )
         fig.update_layout(yaxis={"categoryorder": "total ascending"})
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(style_figure(fig), use_container_width=True)
     with right:
         fig = px.bar(
             regional, x="Regional", y="Loss_Rp",
             title="Loss Opportunity per Regional",
             labels={"Loss_Rp": "Loss Rp"},
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(style_figure(fig), use_container_width=True)
 
     top_units = (
         filtered.groupby("Unit_Dashboard", as_index=False)
@@ -486,7 +462,7 @@ with tab_overview:
         title="Top 10 Unit Berdasarkan Loss Opportunity",
         labels={"Loss_Rp": "Loss Rp", "Unit_Dashboard": "Unit"},
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(style_figure(fig, 500), use_container_width=True)
 
 with tab_forecast:
     st.subheader("Looking Forward – Estimated Annual Loss")
@@ -582,7 +558,7 @@ with tab_forecast:
             labels={"Loss_Rp": "Loss Opportunity Rp", "Periode": "Periode"},
             color_discrete_map={"Aktual": "#0072CE", "Estimasi": "#F4A261"},
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(style_figure(fig, 480), use_container_width=True)
 
         summary = pd.DataFrame(
             {
@@ -928,7 +904,7 @@ with tab_quality:
             quality, names=quality_col, values="size", hole=0.45,
             title="Komposisi Kelengkapan Waktu",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(style_figure(fig), use_container_width=True)
     st.warning(
         "Record berstatus HANYA BULAN ditampilkan sebagai agregasi bulanan. "
         "Dashboard tidak mengasumsikan tanggal kejadian tertentu."
