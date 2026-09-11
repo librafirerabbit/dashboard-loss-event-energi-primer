@@ -97,6 +97,32 @@ st.markdown(
         box-shadow: inset 0 0 0 1px #687180 !important;
         overflow: hidden !important;
     }}
+    /* Streamlit versi baru: kontainer utama multiselect. */
+    [data-testid="stSidebar"] [data-testid="stMultiSelect"] > div,
+    [data-testid="stSidebar"] [data-testid="stMultiSelect"] div[role="group"] {{
+        background-color: #353B46 !important;
+        background-image: none !important;
+        color: #F4F7FB !important;
+        border-color: #687180 !important;
+        border-radius: 10px !important;
+    }}
+    [data-testid="stSidebar"] [data-testid="stMultiSelect"] input {{
+        background-color: transparent !important;
+        color: #F4F7FB !important;
+        caret-color: #F4F7FB !important;
+    }}
+    [data-testid="stSidebar"] [data-testid="stMultiSelect"] button,
+    [data-testid="stSidebar"] [data-testid="stMultiSelect"] button svg,
+    [data-testid="stSidebar"] [data-testid="stMultiSelect"] button path {{
+        color: #E8EDF5 !important;
+        fill: #E8EDF5 !important;
+    }}
+    [data-testid="stSidebar"] [data-testid="stMultiSelect"] span[role="group"] > span {{
+        background-color: #0878CE !important;
+        color: #FFFFFF !important;
+        border: 1px solid #52B7F4 !important;
+        border-radius: 8px !important;
+    }}
     [data-testid="stSidebar"] [data-baseweb="select"] input {{
         color: #F4F7FB !important;
         caret-color: #F4F7FB !important;
