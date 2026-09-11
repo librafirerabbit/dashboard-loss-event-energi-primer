@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 
@@ -14,6 +15,73 @@ st.set_page_config(
     page_icon="⚡",
     layout="wide",
 )
+
+COLORS = {
+    "bg": "#0B0F17", "panel": "#121826", "panel_2": "#182235",
+    "text": "#F7F9FC", "muted": "#AAB4C5", "grid": "#303A4D",
+    "blue": "#46B5D1", "cyan": "#55C2C3", "amber": "#FFB547",
+    "coral": "#EF6175", "green": "#78C58A", "red": "#FF5252",
+}
+
+st.markdown(
+    f"""
+    <style>
+    .stApp {{ background: {COLORS['bg']}; color: {COLORS['text']}; }}
+    [data-testid="stSidebar"] {{
+        background: linear-gradient(180deg, #101827 0%, #0B111D 100%);
+        border-right: 1px solid #253047;
+    }}
+    [data-testid="stHeader"] {{ background: rgba(11,15,23,.82); }}
+    h1, h2, h3, h4, p, label, [data-testid="stCaptionContainer"] {{
+        color: {COLORS['text']};
+    }}
+    [data-testid="stMetric"] {{
+        background: linear-gradient(145deg, {COLORS['panel_2']}, {COLORS['panel']});
+        border: 1px solid #2A3853;
+        border-top: 3px solid {COLORS['cyan']};
+        border-radius: 14px;
+        padding: 16px 18px;
+        min-height: 118px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.20);
+    }}
+    [data-testid="stMetricLabel"] {{ color: {COLORS['muted']}; }}
+    [data-testid="stMetricValue"] {{ color: {COLORS['text']}; }}
+    [data-baseweb="tab-list"] {{
+        gap: 8px; background: {COLORS['panel']}; padding: 7px;
+        border-radius: 12px; border: 1px solid #253047;
+    }}
+    [data-baseweb="tab"] {{ border-radius: 9px; padding: 8px 14px; }}
+    [aria-selected="true"][data-baseweb="tab"] {{
+        background: #1F8EA8; color: white;
+    }}
+    [data-testid="stDataFrame"], [data-testid="stAlert"] {{
+        border-radius: 12px; overflow: hidden;
+    }}
+    .block-container {{ padding-top: 2rem; padding-bottom: 3rem; }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+px.defaults.template = "plotly_dark"
+px.defaults.color_discrete_sequence = [
+    COLORS["cyan"], COLORS["amber"], COLORS["coral"],
+    COLORS["green"], COLORS["blue"], "#A78BFA",
+]
+
+
+def style_figure(fig, height: int = 430):
+    fig.update_layout(
+        paper_bgcolor=COLORS["bg"], plot_bgcolor=COLORS["bg"],
+        font={"color": COLORS["text"], "family": "Arial"},
+        title_font={"size": 20}, height=height,
+        margin={"l": 35, "r": 25, "t": 70, "b": 40},
+        hoverlabel={"bgcolor": COLORS["panel_2"], "font_color": COLORS["text"]},
+        legend={"bgcolor": "rgba(0,0,0,0)"},
+    )
+    fig.update_xaxes(gridcolor=COLORS["grid"], zerolinecolor=COLORS["grid"])
+    fig.update_yaxes(gridcolor=COLORS["grid"], zerolinecolor=COLORS["grid"])
+    return fig
 
 SHEET_ID = "1k1rEDG8UqMG7Oo6bBrbWK3lrdmUPKPFmrlPjCjRfVno"
 DATA_GID = "488571671"
@@ -549,10 +617,11 @@ with tab_simulation:
             "Jumlah iterasi", options=[1000, 5000, 10000, 25000, 50000], value=10000
         )
         seed = m2.number_input("Random seed", min_value=1, value=2026, step=1)
-        exceedance_pct = m3.slider(
-            "Threshold exceedance (% risk limit)", 0.05, 1.00, 0.20, 0.05,
-            format="%.0f%%"
+        exceedance_percent = m3.slider(
+            "Threshold exceedance (% risk limit)", 5, 100, 20, 5,
+            format="%d%%"
         )
+        exceedance_pct = exceedance_percent / 100.0
 
         result = simulate_annual_loss(
             model_data,
@@ -598,7 +667,7 @@ with tab_simulation:
             x=threshold_rp, line_dash="dot", line_color="#C1121F",
             annotation_text="Exceedance threshold", annotation_position="bottom"
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(style_figure(fig, 500), use_container_width=True)
 
         sorted_loss = np.sort(annual_loss)
         exceedance_curve = pd.DataFrame(
@@ -613,20 +682,46 @@ with tab_simulation:
             y="Probability of Exceedance",
             title="Probability of Exceedance Curve",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(style_figure(fig), use_container_width=True)
 
         alpha, beta = beta_pert_parameters(minimum, mode, maximum)
         pert_sample = beta_pert_sample(
             np.random.default_rng(int(seed)), minimum, mode, maximum, 20000
         )
-        fig = px.histogram(
-            pd.DataFrame({"Monthly Loss Rp": pert_sample}),
-            x="Monthly Loss Rp",
-            nbins=60,
-            histnorm="probability density",
-            title=f"BETA-PERT Severity – α={alpha:.2f}, β={beta:.2f}",
+        p20, p50, p90, p95 = np.percentile(pert_sample, [20, 50, 90, 95])
+        density, edges = np.histogram(pert_sample, bins=90, density=True)
+        centers = (edges[:-1] + edges[1:]) / 2
+        widths = np.diff(edges)
+        zone_colors = np.where(
+            centers <= p20, COLORS["coral"],
+            np.where(
+                centers <= p50, COLORS["amber"],
+                np.where(centers <= p90, COLORS["cyan"], COLORS["green"]),
+            ),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        fig = go.Figure(
+            go.Bar(
+                x=centers, y=density, width=widths,
+                marker={"color": zone_colors, "line": {"width": 0}},
+                hovertemplate="Loss Rp %{x:,.0f}<br>Kepadatan %{y:.6f}<extra></extra>",
+            )
+        )
+        fig.update_layout(
+            title=f"Distribusi BETA-PERT — Loss Opportunity | α={alpha:.2f}, β={beta:.2f}",
+            xaxis_title="Loss Opportunity (Rp)", yaxis_title="Kepadatan Probabilitas",
+            bargap=0,
+        )
+        percentile_lines = {
+            "P20": (p20, COLORS["coral"]), "P50": (p50, COLORS["amber"]),
+            "P90": (p90, COLORS["blue"]), "P95": (p95, COLORS["red"]),
+        }
+        for label, (value, color) in percentile_lines.items():
+            fig.add_vline(
+                x=value, line_dash="dash", line_color=color, line_width=2,
+                annotation_text=label, annotation_position="top",
+                annotation_font_color=color,
+            )
+        st.plotly_chart(style_figure(fig, 520), use_container_width=True)
         st.caption(
             f"Probabilitas bulan aktif (smoothed): {result['occurrence_probability']:.2%}. "
             "Parameter dapat diubah untuk memasukkan expert judgement."
