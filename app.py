@@ -61,6 +61,54 @@ st.markdown(
         background: #E7EAF0;
         border: 1px solid #59616E;
     }}
+    /* Alert: hindari teks putih pada latar warning yang pucat. */
+    [data-testid="stAlert"] {{
+        background: #343944 !important;
+        border: 1px solid #D6A72F !important;
+        border-left: 6px solid #F2C94C !important;
+    }}
+    [data-testid="stAlert"] p,
+    [data-testid="stAlert"] div,
+    [data-testid="stAlert"] span {{
+        color: #FFF4C2 !important;
+    }}
+
+    /* Sidebar dan seluruh kontrol filter. */
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] span {{
+        color: #F4F7FB !important;
+    }}
+    [data-testid="stSidebar"] [data-baseweb="select"] > div,
+    [data-testid="stSidebar"] [data-baseweb="select"] > div > div,
+    [data-testid="stSidebar"] [role="combobox"] {{
+        background-color: #353B46 !important;
+        color: #F4F7FB !important;
+        border-color: #687180 !important;
+    }}
+    [data-testid="stSidebar"] [data-baseweb="select"] input {{
+        color: #F4F7FB !important;
+        caret-color: #F4F7FB !important;
+    }}
+    [data-testid="stSidebar"] [data-baseweb="select"] svg {{
+        fill: #E8EDF5 !important;
+        color: #E8EDF5 !important;
+    }}
+    [data-testid="stSidebar"] [data-baseweb="tag"] {{
+        background-color: #1769AA !important;
+        border: 1px solid #4FA3DD !important;
+        color: #FFFFFF !important;
+    }}
+    [data-testid="stSidebar"] [data-baseweb="tag"] span {{
+        color: #FFFFFF !important;
+    }}
+    [data-testid="stSidebar"] hr {{
+        border-color: #515966 !important;
+    }}
+
     div[data-baseweb="select"] > div,
     [data-testid="stNumberInput"] input,
     [data-testid="stTextInput"] input {{
