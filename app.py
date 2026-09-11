@@ -16,8 +16,8 @@ st.set_page_config(
 )
 
 COLORS = {
-    "bg": "#0B0F17", "panel": "#121826", "panel_2": "#182235",
-    "text": "#F7F9FC", "muted": "#AAB4C5", "grid": "#303A4D",
+    "bg": "#191C22", "chart": "#242932", "panel": "#252A33", "panel_2": "#303641",
+    "text": "#F4F7FB", "muted": "#B9C1CE", "grid": "#46505E",
     "blue": "#46B5D1", "cyan": "#55C2C3", "amber": "#FFB547",
     "coral": "#EF6175", "green": "#78C58A", "red": "#FF5252",
 }
@@ -25,10 +25,13 @@ COLORS = {
 st.markdown(
     f"""
     <style>
-    .stApp {{ background: {COLORS['bg']}; color: {COLORS['text']}; }}
+    .stApp {{
+        background: linear-gradient(135deg, #1B1E24 0%, #15181E 100%);
+        color: {COLORS['text']};
+    }}
     [data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, #101827 0%, #0B111D 100%);
-        border-right: 1px solid #253047;
+        background: linear-gradient(180deg, #292E38 0%, #22262E 100%);
+        border-right: 1px solid #414854;
     }}
     [data-testid="stHeader"] {{ background: rgba(11,15,23,.82); }}
     h1, h2, h3, h4, p, label, [data-testid="stCaptionContainer"] {{
@@ -36,7 +39,7 @@ st.markdown(
     }}
     [data-testid="stMetric"] {{
         background: linear-gradient(145deg, {COLORS['panel_2']}, {COLORS['panel']});
-        border: 1px solid #2A3853;
+        border: 1px solid #49515E;
         border-top: 3px solid {COLORS['cyan']};
         border-radius: 14px;
         padding: 16px 18px;
@@ -47,7 +50,7 @@ st.markdown(
     [data-testid="stMetricValue"] {{ color: {COLORS['text']}; }}
     [data-baseweb="tab-list"] {{
         gap: 8px; background: {COLORS['panel']}; padding: 7px;
-        border-radius: 12px; border: 1px solid #253047;
+        border-radius: 12px; border: 1px solid #464D59;
     }}
     [data-baseweb="tab"] {{ border-radius: 9px; padding: 8px 14px; }}
     [aria-selected="true"][data-baseweb="tab"] {{
@@ -55,6 +58,25 @@ st.markdown(
     }}
     [data-testid="stDataFrame"], [data-testid="stAlert"] {{
         border-radius: 12px; overflow: hidden;
+        background: #E7EAF0;
+        border: 1px solid #59616E;
+    }}
+    div[data-baseweb="select"] > div,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stTextInput"] input {{
+        background: #343A45 !important;
+        color: #F7F9FC !important;
+        border-color: #59616E !important;
+    }}
+    div[data-baseweb="tag"] {{
+        background-color: #1976C9 !important;
+        color: white !important;
+    }}
+    [data-testid="stDownloadButton"] button,
+    [data-testid="baseButton-secondary"] {{
+        background: #343A45;
+        color: #F7F9FC;
+        border: 1px solid #626B78;
     }}
     .block-container {{ padding-top: 2rem; padding-bottom: 3rem; }}
     </style>
@@ -71,16 +93,28 @@ px.defaults.color_discrete_sequence = [
 
 def style_figure(fig, height: int = 430):
     fig.update_layout(
-        paper_bgcolor=COLORS["bg"], plot_bgcolor=COLORS["bg"],
+        paper_bgcolor=COLORS["panel"], plot_bgcolor=COLORS["chart"],
         font={"color": COLORS["text"], "family": "Arial"},
         title_font={"size": 20}, height=height,
-        margin={"l": 35, "r": 25, "t": 70, "b": 40},
+        margin={"l": 45, "r": 30, "t": 70, "b": 50},
         hoverlabel={"bgcolor": COLORS["panel_2"], "font_color": COLORS["text"]},
         legend={"bgcolor": "rgba(0,0,0,0)"},
     )
     fig.update_xaxes(gridcolor=COLORS["grid"], zerolinecolor=COLORS["grid"])
     fig.update_yaxes(gridcolor=COLORS["grid"], zerolinecolor=COLORS["grid"])
     return fig
+
+
+def style_table(data: pd.DataFrame, formats: dict | None = None):
+    """Tabel abu-abu terang dengan teks gelap agar nyaman dibaca."""
+    styler = data.style
+    if formats:
+        styler = styler.format(formats)
+    return styler.set_properties(
+        **{"background-color": "#E7EAF0", "color": "#172033", "border-color": "#C0C6D0"}
+    ).set_table_styles(
+        [{"selector": "th", "props": [("background-color", "#CDD3DC"), ("color", "#172033"), ("font-weight", "700")]}]
+    )
 
 SHEET_ID = "1k1rEDG8UqMG7Oo6bBrbWK3lrdmUPKPFmrlPjCjRfVno"
 DATA_GID = "488571671"
@@ -567,7 +601,13 @@ with tab_forecast:
                 "Loss Opportunity Rp": [actual_rp, remaining_rp, annual_rp],
             }
         )
-        st.dataframe(summary, use_container_width=True, hide_index=True)
+        st.dataframe(
+            style_table(
+                summary,
+                {"Loss Production MWh": "{:,.3f}", "Loss Opportunity Rp": "{:,.0f}"},
+            ),
+            use_container_width=True, hide_index=True,
+        )
         st.warning(
             "Proyeksi ini adalah annualized run-rate, bukan hasil Monte Carlo. "
             "Perubahan skenario hanya diterapkan pada periode yang belum terealisasi."
@@ -853,12 +893,12 @@ with tab_heatmap:
         fig.update_xaxes(
             tickmode="array", tickvals=[1, 2, 3, 4, 5],
             ticktext=["1<br>Sangat Rendah", "2<br>Rendah", "3<br>Moderat", "4<br>Tinggi", "5<br>Sangat Tinggi"],
-            range=[0.5, 5.5], fixedrange=True, gridcolor="#0B0F17",
+            range=[0.5, 5.5], fixedrange=True, gridcolor="#3E4652",
         )
         fig.update_yaxes(
             tickmode="array", tickvals=[1, 2, 3, 4, 5],
             ticktext=["1 · Sangat Jarang", "2 · Jarang", "3 · Bisa Terjadi", "4 · Sangat Mungkin", "5 · Hampir Pasti"],
-            range=[0.5, 5.5], fixedrange=True, gridcolor="#0B0F17",
+            range=[0.5, 5.5], fixedrange=True, gridcolor="#3E4652",
         )
         st.plotly_chart(style_figure(fig, 650), use_container_width=True)
 
@@ -869,12 +909,13 @@ with tab_heatmap:
         ]].copy()
         st.markdown("#### Legenda Kategori Risiko")
         st.dataframe(
-            legend_df.style.format(
+            style_table(
+                legend_df,
                 {
                     "P90 Annual Loss Rp": "{:,.0f}",
                     "% Risk Limit": "{:.2%}",
                     "Probability of Exceedance": "{:.2%}",
-                }
+                },
             ),
             use_container_width=True, hide_index=True,
         )
@@ -922,7 +963,7 @@ with tab_detail:
     detail = filtered[display_columns].sort_values(
         "Loss_Opportunity_Rp", ascending=False
     )
-    st.dataframe(detail, use_container_width=True, hide_index=True)
+    st.dataframe(style_table(detail), use_container_width=True, hide_index=True)
     st.download_button(
         "Unduh data terfilter (CSV)",
         data=detail.to_csv(index=False).encode("utf-8-sig"),
