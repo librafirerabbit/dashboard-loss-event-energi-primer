@@ -175,6 +175,45 @@ st.markdown(
         color: #F7F9FC;
         border: 1px solid #626B78;
     }}
+    .risk-table-wrap {{
+        max-height: 620px;
+        overflow: auto;
+        border: 1px solid #566273;
+        border-radius: 12px;
+        background: #E9EDF3;
+        box-shadow: 0 8px 22px rgba(0,0,0,.18);
+    }}
+    table.risk-table {{
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        color: #172033;
+        font-size: 14px;
+        white-space: nowrap;
+    }}
+    table.risk-table thead th {{
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #1F4E78;
+        color: #FFFFFF;
+        font-weight: 700;
+        text-align: left;
+        padding: 12px 14px;
+        border-right: 1px solid #4776A0;
+        border-bottom: 2px solid #163A5B;
+    }}
+    table.risk-table tbody td {{
+        padding: 10px 14px;
+        border-right: 1px solid #CDD4DE;
+        border-bottom: 1px solid #CDD4DE;
+    }}
+    table.risk-table tbody tr:nth-child(odd) td {{ background: #F4F7FB; }}
+    table.risk-table tbody tr:nth-child(even) td {{ background: #DDE6F1; }}
+    table.risk-table tbody tr:hover td {{
+        background: #C6DAEE;
+        color: #0F2740;
+    }}
     .block-container {{ padding-top: 2rem; padding-bottom: 3rem; }}
     </style>
     """,
@@ -1060,7 +1099,26 @@ with tab_detail:
     detail = filtered[display_columns].sort_values(
         "Loss_Opportunity_Rp", ascending=False
     )
-    st.dataframe(style_table(detail), use_container_width=True, hide_index=True)
+    detail_display = detail.copy()
+    if "Loss_Production_MWh" in detail_display:
+        detail_display["Loss_Production_MWh"] = detail_display["Loss_Production_MWh"].map(
+            lambda value: f"{value:,.3f}" if pd.notna(value) else "-"
+        )
+    if "Loss_Opportunity_Rp" in detail_display:
+        detail_display["Loss_Opportunity_Rp"] = detail_display["Loss_Opportunity_Rp"].map(
+            lambda value: f"Rp{value:,.0f}" if pd.notna(value) else "-"
+        )
+    if "Pct_Risk_Limit" in detail_display:
+        detail_display["Pct_Risk_Limit"] = detail_display["Pct_Risk_Limit"].map(
+            lambda value: f"{value:.4%}" if pd.notna(value) else "-"
+        )
+    table_html = detail_display.to_html(
+        index=False, classes="risk-table", border=0, escape=True, na_rep="-"
+    )
+    st.markdown(
+        f'<div class="risk-table-wrap">{table_html}</div>',
+        unsafe_allow_html=True,
+    )
     st.download_button(
         "Unduh data terfilter (CSV)",
         data=detail.to_csv(index=False).encode("utf-8-sig"),
