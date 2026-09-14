@@ -849,6 +849,11 @@ with tab_simulation:
             annotation_text="Exceedance threshold", annotation_position="bottom"
         )
         st.plotly_chart(style_figure(fig, 500), use_container_width=True)
+        st.caption(
+            "Cara baca singkat: area histogram yang lebih tinggi menunjukkan rentang "
+            "annual loss yang lebih sering muncul dalam simulasi. P90 menyisakan 10% "
+            "kemungkinan annual loss melampaui nilai tersebut."
+        )
 
         sorted_loss = np.sort(annual_loss)
         exceedance_curve = pd.DataFrame(
@@ -864,6 +869,10 @@ with tab_simulation:
             title="Probability of Exceedance Curve",
         )
         st.plotly_chart(style_figure(fig), use_container_width=True)
+        st.caption(
+            "Cara baca singkat: pilih nilai annual loss pada sumbu X, kemudian baca "
+            "sumbu Y sebagai peluang annual loss tersebut akan terlampaui."
+        )
 
         alpha, beta = beta_pert_parameters(minimum, mode, maximum)
         pert_sample = beta_pert_sample(
@@ -907,6 +916,53 @@ with tab_simulation:
             f"Probabilitas bulan aktif (smoothed): {result['occurrence_probability']:.2%}. "
             "Parameter dapat diubah untuk memasukkan expert judgement."
         )
+
+        with st.expander("ℹ️ Cara membaca grafik Monte Carlo dan BETA-PERT"):
+            st.markdown(
+                f"""
+                **1. Forecast Chart — Distribusi Annual Loss**
+
+                Grafik pertama menunjukkan sebaran total *loss opportunity* tahunan
+                dari **{int(simulations):,} iterasi Monte Carlo**. Area yang lebih tinggi
+                menunjukkan rentang annual loss yang lebih sering muncul, sedangkan
+                sumbu Y merupakan **kepadatan probabilitas**, bukan persentase peluang.
+
+                - **P50 = {rupiah(percentiles[0])}**: median hasil simulasi; 50% hasil
+                  berada di bawah dan 50% berada di atas nilai ini.
+                - **P90 = {rupiah(percentiles[2])}**: 90% hasil berada pada atau di bawah
+                  nilai ini dan 10% berpotensi melampauinya.
+                - **P95 = {rupiah(percentiles[3])}**: 95% hasil berada pada atau di bawah
+                  nilai ini dan 5% berpotensi melampauinya.
+                - **Threshold = {rupiah(threshold_rp)}** atau {exceedance_pct:.0%} dari
+                  risk limit.
+                - Peluang annual loss melampaui threshold tersebut adalah
+                  **{exceedance_probability:.2%}**.
+
+                **2. Probability of Exceedance Curve**
+
+                Kurva kedua dibaca dari kiri ke kanan. Pilih nilai annual loss pada
+                sumbu horizontal, lalu baca sumbu vertikal sebagai peluang nilai
+                tersebut akan terlampaui. Semakin besar nilai annual loss, umumnya
+                semakin kecil peluang terlampauinya.
+
+                **3. Distribusi BETA-PERT — Monthly Severity**
+
+                Grafik ketiga menggambarkan ketidakpastian besaran loss pada bulan yang
+                mengalami kejadian. Distribusi dibentuk dari parameter minimum
+                **{rupiah(minimum)}**, most likely **{rupiah(mode)}**, dan maksimum
+                **{rupiah(maximum)}**.
+
+                - Merah: sampai P20 ({rupiah(p20)}).
+                - Kuning: P20 sampai P50 ({rupiah(p50)}).
+                - Cyan: P50 sampai P90 ({rupiah(p90)}).
+                - Hijau: di atas P90; P95 berada pada {rupiah(p95)}.
+
+                **Batas interpretasi:** BETA-PERT menggambarkan *severity bulanan*,
+                sedangkan Forecast Chart menggambarkan *annual loss*. Annual loss
+                diperoleh dari aktual YTD ditambah simulasi occurrence dan severity
+                selama periode yang belum terealisasi.
+                """
+            )
 
 with tab_heatmap:
     st.subheader("Risk Heat Map – Monte Carlo P90")
