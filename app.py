@@ -214,6 +214,40 @@ st.markdown(
         background: #C6DAEE;
         color: #0F2740;
     }}
+    /* Panel cara membaca: header dan isi konsisten dengan dark theme. */
+    [data-testid="stExpander"],
+    [data-testid="stExpander"] details {{
+        background: #292F39 !important;
+        border: 1px solid #586575 !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+    }}
+    [data-testid="stExpander"] summary {{
+        background: #303743 !important;
+        color: #F7FAFC !important;
+        border-left: 5px solid #55C2C3 !important;
+        padding: 12px 16px !important;
+    }}
+    [data-testid="stExpander"] summary:hover {{
+        background: #394250 !important;
+    }}
+    [data-testid="stExpander"] summary p,
+    [data-testid="stExpander"] summary span,
+    [data-testid="stExpander"] summary svg {{
+        color: #F7FAFC !important;
+        opacity: 1 !important;
+        font-weight: 700 !important;
+    }}
+    [data-testid="stExpanderDetails"] {{
+        background: #252B34 !important;
+        color: #F4F7FB !important;
+        padding: 16px 20px 20px 20px !important;
+    }}
+    [data-testid="stExpanderDetails"] p,
+    [data-testid="stExpanderDetails"] li,
+    [data-testid="stExpanderDetails"] strong {{
+        color: #F4F7FB !important;
+    }}
     .block-container {{ padding-top: 2rem; padding-bottom: 3rem; }}
     </style>
     """,
